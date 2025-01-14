@@ -11,9 +11,10 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from translation import get_language_names, translate
 from dotenv import load_dotenv
 import time
-
+from streamlit_modal import Modal
 load_dotenv()
 
+   
 # Load API keys
 groq_api_key = os.getenv('GROQ_API_KEY')
 os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
@@ -21,19 +22,64 @@ os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
 st.set_page_config(page_title="Q&A with Documents", layout="wide")
 st.title("Q&A with Uploaded Documents")
 
-# Initialize LLM and Prompt
-llm = ChatGroq(groq_api_key=groq_api_key, model_name="Llama3-8b-8192")
 
-prompt = ChatPromptTemplate.from_template(
-    """
-Answer the questions based on the provided context only.
+# Initialize Modal
+modal = Modal(key="settings_modal", title="Settings")
+
+# Button to open the modal
+open_modal = st.button('Settings', key="settings_button",type="tertiary")
+
+if open_modal:
+    with modal.container():
+        # Section to select ChatGroq models
+        available_models = ["Llama3-8b-8192", "Llama2-13b", "Falcon-7b"]
+        selected_model = st.selectbox(
+            "Choose ChatGroq models to use:",
+            options=available_models,
+        )
+
+        # Section to update prompt template
+        prompt_template = st.text_area(
+            "Enter your custom prompt template:",
+            value="""Answer the questions based on the provided context only.
 Please provide the most accurate response based on the question.
 <context>
 {context}
 <context>
 Questions: {input}
 """
-)
+        )
+
+        # Save Settings Button
+        if st.button("Save Settings"):
+            st.session_state.selected_model = selected_model
+            st.session_state.prompt_template = prompt_template
+            st.success("Settings updated successfully!")
+
+# Display current settings
+    
+            
+llm = None
+prompt = None
+# Initialize LLM and Prompt
+if "selected_model" in st.session_state:
+    llm = ChatGroq(groq_api_key=groq_api_key, model_name=st.session_state.selected_model)
+else:
+    llm = ChatGroq(groq_api_key=groq_api_key, model_name="Llama3-8b-8192")
+    
+if "prompt_template" not in st.session_state:
+    prompt = ChatPromptTemplate.from_template(
+    """
+    Answer the questions based on the provided context only.
+    Please provide the most accurate response based on the question.
+    <context>
+    {context}
+    <context>
+    Questions: {input}
+    """
+    )
+else:
+    prompt = ChatPromptTemplate.from_template(st.session_state.prompt_template)
 
 # Initialize session state
 if "vectors" not in st.session_state:
@@ -100,6 +146,7 @@ for name in st.session_state.vectors.keys():
     st.sidebar.write(f"- {name}")
 
 # Main Q&A interface
+
 prompt1 = st.text_input("Enter Your Question From Documents")
 if prompt1:
     if st.session_state.vectors:

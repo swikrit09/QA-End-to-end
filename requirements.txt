@@ -10,3 +10,4 @@ python-dotenv
 pypdf
 google-cloud-aiplatform>=1.38
 requests
+streamlit_modal
