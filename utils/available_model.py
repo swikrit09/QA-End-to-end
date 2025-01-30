@@ -1,0 +1,1 @@
+available_models = ["Llama3-8b-8192", "Llama2-13b", "Falcon-7b"]

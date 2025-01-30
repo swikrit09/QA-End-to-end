@@ -11,3 +11,12 @@ pypdf
 google-cloud-aiplatform>=1.38
 requests
 streamlit_modal
+
+llama_index
+gitingest
+markdown
+fastapi
+uvicorn
+llama-index-llms-ollama 
+llama-index-agent-openai 
+llama-index-llms-openai

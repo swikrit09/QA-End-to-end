@@ -6,12 +6,14 @@ from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
 from langchain.chains import create_retrieval_chain
 from langchain_community.vectorstores import FAISS
-from langchain_community.document_loaders import PyPDFLoader
+from langchain.document_loaders import TextLoader
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from translation import get_language_names, translate
 from dotenv import load_dotenv
 import time
 from streamlit_modal import Modal
+from gitingest import ingest
+import tempfile
 load_dotenv()
 
    
@@ -57,7 +59,15 @@ Questions: {input}
             st.success("Settings updated successfully!")
 
 # Display current settings
-    
+def ingest_github_repository(github_url):
+    """
+    Ingests a GitHub repository safely.
+    """
+    try:
+        result = ingest(github_url)
+        return result  # (summary, tree, content)
+    except Exception as e:
+        raise RuntimeError(f"Error during GitHub ingestion: {e}")
             
 llm = None
 prompt = None
@@ -87,28 +97,48 @@ if "vectors" not in st.session_state:
     st.session_state.conversations = []
 
 
-def vector_embedding_from_upload(embedding_name, uploaded_files):
-    """Creates and stores embeddings from uploaded files in the session state."""
-    if embedding_name not in st.session_state.vectors:
-        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-        docs = []
-        
-        # Load PDFs from user uploads
-        for uploaded_file in uploaded_files:
-            with open(uploaded_file.name, "wb") as f:
-                f.write(uploaded_file.getbuffer())
-            loader = PyPDFLoader(uploaded_file.name)
-            docs.extend(loader.load())
 
-        # Text splitting and vector embedding
+def vector_embedding_from_github(embedding_name, github_url):
+    """
+    Creates and stores embeddings from a GitHub repository in FAISS.
+    """
+    # Check if the embedding already exists in the session state
+    if embedding_name not in st.session_state.get("vectors", {}):
+        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+        # Step 1: Ingest the GitHub repository
+        st.write("Ingesting the GitHub repository...")
+        summary, tree, content = ingest_github_repository(github_url)
+
+        # Step 2: Prepare the content as a document
+        with tempfile.TemporaryDirectory() as temp_dir:
+            # Save content as a markdown file
+            data = "\n".join([summary,tree,content])
+            st.markdown(data)
+            content_path = os.path.join(temp_dir, "repo_content.md")
+            with open(content_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            
+            # Load the content into documents
+
+            loader = TextLoader(content_path)
+            docs = loader.load()
+
+        # Step 3: Split the content into chunks
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
         final_documents = text_splitter.split_documents(docs)
         vectors = FAISS.from_documents(final_documents, embeddings)
         st.session_state.vectors[embedding_name] = {"vectors": vectors, "docs": docs}
         st.success(f"Vector Store '{embedding_name}' Created Successfully!")
+
+        # Step 5: Store the embeddings in the session state
+        if "vectors" not in st.session_state:
+            st.session_state["vectors"] = {}
+        st.session_state["vectors"][embedding_name] = {"vectors": vectors, "docs": docs}
+
+        st.success(f"Vector Store '{embedding_name}' Created Successfully!")
+
     else:
         st.warning(f"Embedding '{embedding_name}' already exists!")
-
 
 def delete_embedding(embedding_name):
     """Deletes an embedding from the session state."""
@@ -123,16 +153,13 @@ def delete_embedding(embedding_name):
 st.sidebar.header("Manage Embeddings")
 embedding_name = st.sidebar.text_input("New Embedding Name")
 
-uploaded_files = st.sidebar.file_uploader(
-    "Upload PDF Documents", type=["pdf"], accept_multiple_files=True
-)
-
+git_url = st.sidebar.text_input("Enter git url")
 if st.sidebar.button("Create Embedding"):
-    if embedding_name and uploaded_files:
-        vector_embedding_from_upload(embedding_name, uploaded_files)
+    if embedding_name and git_url:
+        vector_embedding_from_github(embedding_name, git_url)
     elif not embedding_name:
         st.sidebar.error("Please provide a name for the embedding!")
-    elif not uploaded_files:
+    elif not git_url:
         st.sidebar.error("Please upload at least one PDF document!")
 
 if st.sidebar.button("Delete Embedding"):
@@ -147,7 +174,7 @@ for name in st.session_state.vectors.keys():
 
 # Main Q&A interface
 
-prompt1 = st.text_input("Enter Your Question From Documents")
+prompt1 = st.text_input("Enter Your Question From Git Repo")
 if prompt1:
     if st.session_state.vectors:
         selected_embedding = st.sidebar.selectbox("Select Embedding", st.session_state.vectors.keys())

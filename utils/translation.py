@@ -1,4 +1,4 @@
-from languages import foreign_languages, indian_languages
+from utils.languages import foreign_languages, indian_languages
 import os
 import requests
 from dotenv import load_dotenv
