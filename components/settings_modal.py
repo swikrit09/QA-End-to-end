@@ -25,8 +25,8 @@ Questions: {input}
 """,
         )
 
-        # st.session_state.groq_api_key = os.getenv('GROQ_API_KEY')
-        # st.session_state.google_api_key = os.getenv('GOOGLE_API_KEY')
+        st.session_state.groq_api_key = os.getenv('GROQ_API_KEY')
+        st.session_state.google_api_key = os.getenv('GOOGLE_API_KEY')
 
         # Right Column: API Key Inputs
         with col2:

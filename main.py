@@ -22,12 +22,13 @@ st.markdown("""
             padding: 10px;
             font-size: 1.2em;
             border-radius: 10px;
-            background-color: #dea235;
+            background-color: #ff4b4b;
             color: white;
             border: none;
+            transition:all 0.3s ease;
         }
         .stButton > button:hover {
-            background-color: #872451;
+            background-color: #fa4000;
             color: #fff;
         }
     </style>
