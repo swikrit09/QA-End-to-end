@@ -6,6 +6,7 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from components.settings_modal import settings_modal
+from components.display_pdf import display_pdf
 from components.chat_container import create_chat_container
 from dotenv import load_dotenv
 
@@ -70,6 +71,8 @@ if google_api_key and groq_api_key:
             vectors = FAISS.from_documents(final_documents, embeddings)
             st.session_state.vectors[embedding_name] = {"vectors": vectors, "docs": docs}
             st.success(f"Vector Store '{embedding_name}' Created Successfully!")
+            display_pdf(uploaded_file)
+            
         else:
             st.warning(f"Embedding '{embedding_name}' already exists!")
 

@@ -32,9 +32,9 @@ def create_chat_container(llm,prompt,type="Document"):
 
                 # Retrieve the last response
                 last_response = st.session_state.conversations[-1]["answer"]
-                time = st.session_state.conversations[-1]['response_time']
+                t = st.session_state.conversations[-1]['response_time']
                 # Display the response
-                st.write(f"Response Time: {time:.2f} seconds")
+                st.write(f"Response Time: {t:.2f} seconds")
                 st.write(last_response)
 
                 selected_language = st.selectbox(
