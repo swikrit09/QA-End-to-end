@@ -93,7 +93,8 @@ if google_api_key and groq_api_key:
     uploaded_files = st.sidebar.file_uploader(
         "Upload PDF Documents", type=["pdf"], accept_multiple_files=True
     )
-    display_pdf(uploaded_files[-1])
+    if uploaded_files:
+        display_pdf(uploaded_files[-1])
 
     if st.sidebar.button("Create Embedding"):
         if embedding_name and uploaded_files:
