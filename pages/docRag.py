@@ -64,6 +64,7 @@ if google_api_key and groq_api_key:
                     f.write(uploaded_file.getbuffer())
                 loader = PyPDFLoader(uploaded_file.name)
                 docs.extend(loader.load())
+            
 
             # Text splitting and vector embedding
             text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
@@ -71,7 +72,6 @@ if google_api_key and groq_api_key:
             vectors = FAISS.from_documents(final_documents, embeddings)
             st.session_state.vectors[embedding_name] = {"vectors": vectors, "docs": docs}
             st.success(f"Vector Store '{embedding_name}' Created Successfully!")
-            display_pdf(uploaded_file)
             
         else:
             st.warning(f"Embedding '{embedding_name}' already exists!")
@@ -93,6 +93,7 @@ if google_api_key and groq_api_key:
     uploaded_files = st.sidebar.file_uploader(
         "Upload PDF Documents", type=["pdf"], accept_multiple_files=True
     )
+    display_pdf(uploaded_files[-1])
 
     if st.sidebar.button("Create Embedding"):
         if embedding_name and uploaded_files:
