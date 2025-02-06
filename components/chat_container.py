@@ -5,87 +5,92 @@ from langchain.chains import create_retrieval_chain
 from utils.translation import get_language_names, translate
 
 def create_chat_container(llm, prompt, type="Document"):
-    # User enters a question
-    prompt1 = st.text_input(f"Enter Your Question From {type}")
-    
-    if prompt1:
-        # If the prompt has changed, clear previous translation
-        if ("last_prompt" not in st.session_state) or (st.session_state.last_prompt != prompt1):
-            st.session_state.last_prompt = prompt1
-            st.session_state.translated_text = None
+    # Initialize session state variables if not already set.
+    if "last_prompt" not in st.session_state:
+        st.session_state.last_prompt = ""
+    if "translated_text" not in st.session_state:
+        st.session_state.translated_text = ""
+    if "response" not in st.session_state:
+        st.session_state.response = ""
+    if "translated_response" not in st.session_state:
+        st.session_state.translated_response = ""
+    if "conversations" not in st.session_state:
+        st.session_state.conversations = []
 
-        # If not already translated, automatically perform translation
-        if st.session_state.get("translated_text") is None:
-            with st.spinner("Translating..."):
-                # The translate function automatically detects the input language using "auto"
-                translated_text = translate("auto", "English", prompt1)
-            st.session_state.translated_text = translated_text
-            # st.success("Translation completed!")
+    # User enters a question.
+    user_prompt = st.text_input(f"Enter Your Question From {type}", key="user_prompt")
+
+    # When the user changes the prompt, update the prompt translation and clear stored response.
+    if user_prompt and user_prompt != st.session_state.last_prompt:
+        st.session_state.last_prompt = user_prompt
+        st.session_state.translated_text = translate("auto", "English", user_prompt)
+        st.session_state.response = ""
+        st.session_state.trans = ""
+        st.session_state.translated_response = ""
+    if user_prompt=="":
+        st.session_state.response = ""
+        st.session_state.trans = ""
+        st.session_state.translated_response = ""
+        st.session_state.translated_text = ""
         
-        # Display the translated text
-        st.write("**Translated Text:**", st.session_state.translated_text)
-        
-        # The Ask button is enabled automatically once translation is done.
-        if st.button("Ask", key="ask_btn"):
-            if st.session_state.get("vectors"):
-                selected_embedding = st.sidebar.selectbox(
-                    "Select Embedding", 
-                    list(st.session_state.vectors.keys())
-                )
-                if selected_embedding:
-                    document_chain = create_stuff_documents_chain(llm, prompt)
-                    retriever = st.session_state.vectors[selected_embedding]["vectors"].as_retriever()
-                    retrieval_chain = create_retrieval_chain(retriever, document_chain)
 
-                    # Process the query and measure response time
-                    start = time.process_time()
-                    # Only process if this question is new or if no previous conversation exists
-                    if (not st.session_state.get("conversations")) or \
-                       (prompt1 != st.session_state.conversations[-1]["question"]):
-                        response = retrieval_chain.invoke({'input': prompt1})
-                        response_time = time.process_time() - start
+    # Display the translated prompt.
+    if st.session_state.translated_text:
+        st.write("**Translated Prompt:**", st.session_state.translated_text)
 
-                        # Display document similarity search details in an expander
-                        with st.expander("Document Similarity Search"):
-                            for i, doc in enumerate(response["context"]):
-                                st.write(doc.page_content)
-                                st.write("--------------------------------")
+    # The Ask button processes the translated prompt and stores the response in session state.
+    if st.button("Ask", key="ask_btn"):
+        if st.session_state.get("vectors"):
+            selected_embedding = st.sidebar.selectbox(
+                "Select Embedding",
+                list(st.session_state.vectors.keys()),
+                key="embedding_select"
+            )
+            if selected_embedding:
+                document_chain = create_stuff_documents_chain(llm, prompt)
+                retriever = st.session_state.vectors[selected_embedding]["vectors"].as_retriever()
+                retrieval_chain = create_retrieval_chain(retriever, document_chain)
 
-                        # Save the conversation in session state
-                        if "conversations" not in st.session_state:
-                            st.session_state.conversations = []
-                        st.session_state.conversations.append({
-                            "question": prompt1, 
-                            "answer": response['answer'],
-                            "response_time": response_time 
-                        })
+                start = time.process_time()
+                result = retrieval_chain.invoke({'input': st.session_state.translated_text})
+                response_time = time.process_time() - start
 
-                    # Retrieve and display the last response
-                    last_response = st.session_state.conversations[-1]["answer"]
-                    t = st.session_state.conversations[-1]['response_time']
-                    st.write(f"**Response Time:** {t:.2f} seconds")
-                    st.write(last_response)
-
-                    # Provide a translation option for the response
-                    selected_language = st.selectbox(
-                        "Translate the answer to:",
-                        get_language_names(),
-                        index=0  # Default to the first language in the list
-                    )
-                    if selected_language and selected_language != "Select":
-                        translation = translate("English", selected_language, last_response)
-                        with st.expander("Translated Response"):
-                            st.write(translation)
-            else:
-                st.error("No vector embeddings found. Please create one first!")
-
-        # Display saved conversations in an expander for better organization
-        st.subheader("Saved Conversations")
-        if st.session_state.get("conversations"):
-            for idx, convo in enumerate(st.session_state.conversations):
-                with st.expander(f"Conversation {idx + 1}"):
-                    st.write(f"**Question:** {convo['question']}")
-                    st.write(f"**Answer:** {convo['answer']}")
+                st.session_state.response = result['answer']
+                st.session_state.conversations.append({
+                    "question": user_prompt,
+                    "answer": st.session_state.response,
+                    "response_time": response_time,
+                    "translated_res": None
+                })
         else:
-            st.write("No conversations saved yet.")
+            st.error("No vector embeddings found. Please create one first!")
 
+    # Display the answer (if available) along with its response time.
+    if st.session_state.response:
+        st.write("**Response:**", st.session_state.response)
+        last_convo = st.session_state.conversations[-1]
+        st.write(f"**Response Time:** {last_convo['response_time']:.2f} seconds")
+
+        # Provide a select box to choose a target language for the response translation.
+        target_language = st.selectbox(
+            "Translate the answer to:",
+            get_language_names(),
+            key="translate_lang"
+        )
+        # Translate the response when a target language is selected.
+        if target_language and target_language!="Select":
+            st.session_state.translated_response = translate("English", target_language, st.session_state.response)
+            st.session_state.conversations[-1]["translated_res"] = st.session_state.translated_response
+            st.write("**Translated Response:**", st.session_state.translated_response)
+
+    # Display saved conversations.
+    st.subheader("Saved Conversations")
+    if st.session_state.conversations:
+        for idx, convo in enumerate(st.session_state.conversations):
+            with st.expander(f"Conversation {idx + 1}"):
+                st.write("**Question:**", convo["question"])
+                st.write("**Answer:**", convo["answer"])
+                if(convo['translated_res']):
+                    st.write("**Translated Response:**", convo['translated_res'])
+    else:
+        st.write("No conversations saved yet.")
