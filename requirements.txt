@@ -10,7 +10,9 @@ python-dotenv
 pypdf
 google-cloud-aiplatform>=1.38
 requests
-streamlit_modal
+deep-translator
+bokeh
+streamlit-bokeh-events
 
 llama_index
 gitingest
